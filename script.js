@@ -1,4 +1,4 @@
-(function () {
+﻿(function () {
   'use strict';
 
   var doc = document;
@@ -86,11 +86,27 @@
   function removeOrphans() {
     var keep = { main: 1, 'svg-templates': 1, 'fy-lightbox': 1, 'fayyad-mobile-menu': 1 };
     var svgSeen = false;
+    var main = doc.getElementById('main');
+    var desktopRoot = null;
+    if (main) {
+      var wrap = main.querySelector(':scope > .ssr-variant');
+      desktopRoot = wrap ? wrap.querySelector('[data-framer-root]') : null;
+    }
+    var moved = {};
+    var looseMore = [];
     var kids = Array.prototype.slice.call(doc.body.children);
     kids.forEach(function (el) {
       if (el.tagName === 'SCRIPT') return;
+      if (el.classList && el.classList.contains('fy-more-wrap')) { looseMore.push(el); return; }
+      if (el.tagName === 'DIV' && el.classList.contains('ssr-variant') && el.querySelector('[data-framer-root]')) return;
       if (el.tagName === 'SECTION' && !el.closest('#main')) {
-        el.parentElement.removeChild(el);
+        var name = el.getAttribute('data-framer-name');
+        if (name && !moved[name] && desktopRoot) {
+          moved[name] = true;
+          desktopRoot.appendChild(el);
+        } else {
+          el.parentElement.removeChild(el);
+        }
         return;
       }
       if (el.id && keep[el.id]) {
@@ -101,6 +117,70 @@
         return;
       }
       el.parentElement.removeChild(el);
+    });
+
+    var sigKeys = ['hidden-1tfs4jz', 'hidden-1xnmc73', 'hidden-kgxcmu', 'hidden-72rtr7'];
+    var groups = {};
+    Array.prototype.slice.call(doc.querySelectorAll('.ssr-variant')).forEach(function (w) {
+      if (!w.querySelector('[data-framer-root]')) return;
+      var cls = w.className || '';
+      var sig = [];
+      sigKeys.forEach(function (k) { if (cls.indexOf(k) >= 0) sig.push(k); });
+      sig = sig.join(' ');
+      if (!sig) return;
+      (groups[sig] = groups[sig] || []).push(w);
+    });
+
+    Object.keys(groups).forEach(function (sig) {
+      var arr = groups[sig];
+      if (arr.length < 2) return;
+      var primary = null;
+      arr.forEach(function (w) { if (w.parentNode === main && !primary) primary = w; });
+      if (!primary) {
+        var best = arr[0];
+        arr.forEach(function (w) {
+          var r = w.querySelector('[data-framer-root]');
+          if (r && r.querySelectorAll('section').length > best.querySelectorAll('section').length) best = w;
+        });
+        primary = best;
+      }
+      var primRoot = primary.querySelector('[data-framer-root]');
+      var primPort = primRoot ? primRoot.querySelector('section[data-framer-name="Portfolio"]') : null;
+      arr.forEach(function (w) {
+        if (w === primary) return;
+        var wRoot = w.querySelector('[data-framer-root]');
+        var wGrid = wRoot ? wRoot.querySelector('.fy-grid') : null;
+        if (primPort && wGrid) {
+          var primGrid = primPort.querySelector('.fy-grid');
+          if (!primGrid) {
+            primPort.appendChild(wGrid.parentElement);
+          } else {
+            Array.prototype.slice.call(wGrid.children).forEach(function (card) {
+              if (card.classList && card.classList.contains('fy-card')) primGrid.appendChild(card);
+            });
+          }
+        }
+        var wMore = w.querySelector('.fy-more-wrap');
+        if (wMore) looseMore.push(wMore);
+        if (w.parentNode) w.parentNode.removeChild(w);
+      });
+      if (primary.parentNode !== main && main) main.appendChild(primary);
+    });
+
+    var morePool = Array.prototype.slice.call(doc.querySelectorAll('#main .fy-more-wrap')).concat(looseMore);
+    Array.prototype.forEach.call(doc.querySelectorAll('#main > .ssr-variant'), function (w) {
+      var root = w.querySelector('[data-framer-root]');
+      if (!root) return;
+      var grid = root.querySelector('.fy-grid');
+      var more = w.querySelector('.fy-more-wrap');
+      if (!more && grid) {
+        more = morePool.shift() || null;
+        if (more) {
+          var b = more.querySelector('.fy-more');
+          if (b) { b.setAttribute('aria-expanded', 'false'); b.innerHTML = 'View more \u2193'; }
+          grid.parentNode.appendChild(more);
+        }
+      }
     });
   }
 
