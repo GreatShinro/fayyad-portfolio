@@ -83,6 +83,18 @@
 
   var SCROLL_RE = /translate[XY]\(\s*-?[1-9]/;
 
+  var REVEAL_SRCS = ['img17.png', 'img09.png', 'img24.png'];
+
+  function isRevealImageEl(el) {
+    var im = el.querySelector ? el.querySelector('img') : null;
+    if (!im) return false;
+    var src = im.getAttribute('src') || '';
+    for (var i = 0; i < REVEAL_SRCS.length; i++) {
+      if (src.indexOf(REVEAL_SRCS[i]) !== -1) return true;
+    }
+    return false;
+  }
+
   function removeOrphans() {
     var keep = { main: 1, 'svg-templates': 1, 'fy-lightbox': 1, 'fayyad-mobile-menu': 1 };
     var svgSeen = false;
@@ -249,6 +261,7 @@
           sec.querySelectorAll('[style*="will-change:transform"]'),
           function (el) {
             if (!SCROLL_RE.test(el.style.transform || '')) return;
+            if (isRevealImageEl(el)) return;
             var baked = bakedFor(el);
             var prev = el.style.transform;
             el.style.transform = 'none';
@@ -338,6 +351,62 @@
     applyBenefits();
     win.addEventListener('scroll', onScrollTick, { passive: true });
     win.addEventListener('resize', onResizeRefresh);
+  }
+
+  function initImageReveal() {
+    var reduce = win.matchMedia && win.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var seen = [];
+    var targets = doc.querySelectorAll(
+      'section[data-framer-name="Benefits"] img[src*="img17.png"],' +
+      'section[data-framer-name="Benefits"] img[src*="img09.png"],' +
+      'section[data-framer-name="Benefits"] img[src*="img24.png"]'
+    );
+    Array.prototype.forEach.call(targets, function (im) {
+      var w = im.closest ? im.closest('[style*="will-change:transform"]') : null;
+      if (!w) return;
+      if (seen.indexOf(w) !== -1) return;
+      seen.push(w);
+      w.style.transition = 'transform .8s cubic-bezier(0.22,1,0.36,1)';
+      w.setAttribute('data-fayyad-reveal', 'pending');
+    });
+    if (!seen.length) return;
+
+    var io = null;
+    function reveal(w) {
+      if (w.getAttribute('data-fayyad-reveal') === 'done') return;
+      w.setAttribute('data-fayyad-reveal', 'done');
+      w.style.transform = 'none';
+      if (io) io.unobserve(w);
+    }
+
+    if (reduce) {
+      seen.forEach(reveal);
+      return;
+    }
+
+    if ('IntersectionObserver' in win) {
+      io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) {
+          if (!en.isIntersecting) return;
+          reveal(en.target);
+        });
+      }, { threshold: 0.15 });
+      seen.forEach(function (w) { io.observe(w); });
+    }
+
+    function sweep() {
+      var vh = win.innerHeight;
+      seen.forEach(function (w) {
+        if (w.getAttribute('data-fayyad-reveal') !== 'pending') return;
+        if (w.offsetParent === null) return;
+        var r = w.getBoundingClientRect();
+        if (r.top < vh && r.bottom > 0) reveal(w);
+      });
+    }
+
+    win.addEventListener('scroll', sweep, { passive: true });
+    win.addEventListener('resize', sweep);
+    sweep();
   }
 
   function initTickers() {
@@ -799,6 +868,7 @@
     initTickers();
     initAppear();
     initScrollReveal();
+    initImageReveal();
     initCounters();
     initNavScroll();
     initMobileMenu();
