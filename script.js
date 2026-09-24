@@ -682,7 +682,7 @@
       }
     }
 
-    var PREVIEW = 3;
+    var PREVIEW = 2;
     var STEP = 6;
     var currentFilter = 'All';
     var limit = PREVIEW;
