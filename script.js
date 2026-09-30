@@ -439,7 +439,7 @@
   }
 
   var COUNTERS = [
-    { n: 6, suffix: '+' },
+    { n: 4, suffix: '+' },
     { n: 53, suffix: '+' },
     { n: 99, suffix: '%' }
   ];
