@@ -704,6 +704,19 @@
       return c.classList.contains('fy-card');
     }) : [];
 
+    // Keep each filter tab's count badge in sync with the cards that actually exist
+    var filterCounts = {};
+    gridCards.forEach(function (c) {
+      var k = c.getAttribute('data-cat');
+      filterCounts[k] = (filterCounts[k] || 0) + 1;
+    });
+    doc.querySelectorAll('.fy-filter').forEach(function (btn) {
+      var span = btn.querySelector('span');
+      if (!span) return;
+      var f = btn.getAttribute('data-filter');
+      span.textContent = String(f === 'All' ? gridCards.length : (filterCounts[f] || 0));
+    });
+
     function matchesFilter(card) {
       return currentFilter === 'All' || card.getAttribute('data-cat') === currentFilter;
     }
@@ -725,6 +738,21 @@
       return n;
     }
 
+    function renumberVisible() {
+      allGrids.forEach(function (grid) {
+        var n = 0;
+        var kids = grid.children;
+        for (var i = 0; i < kids.length; i++) {
+          var card = kids[i];
+          if (!card.classList.contains('fy-card')) continue;
+          if (card.style.display === 'none') continue;
+          n++;
+          var el = card.querySelector('.fy-card-num');
+          if (el) el.textContent = n < 10 ? '0' + n : String(n);
+        }
+      });
+    }
+
     function applyGrid() {
       var filtered = currentFilter !== 'All';
       allGrids.forEach(function (g) { g.classList.toggle('fy-collapsed', !filtered && limit <= PREVIEW); });
@@ -744,6 +772,7 @@
         btn.style.display = (limit > PREVIEW) ? '' : 'none';
         btn.innerHTML = 'View less \u2191';
       });
+      renumberVisible();
     }
 
     function openProject(idx, i0) {
